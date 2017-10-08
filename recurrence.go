@@ -6,7 +6,7 @@ type Recurrence struct {
 	Repetitions int
 	Start       *time.Time
 	End         *time.Time
-	Interval    *RecurrenceInterval
+	Duration    *RecurrenceInterval
 }
 
 type RecurrenceInterval struct {

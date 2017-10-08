@@ -143,3 +143,83 @@ func TestDateFromString(t *testing.T) {
 		}
 	}
 }
+
+func TestFullISORecurrenceFromString(t *testing.T) {
+	t.Parallel()
+
+	var formatTests = []struct {
+		RecurrenceString    string
+		ExpectedRepetitions int
+		ExpectedStartDate   string
+		ExpectedEndDate     string
+		ExpectedInterval    RecurrenceInterval
+		FormatCorrect       bool
+	}{
+		/* correct formats */
+		{"R1/1985-04-12T23:20:50/1986-04-12T23:20:50", 1, "1985-04-12T23:20:50Z", "1986-04-12T23:20:50Z", RecurrenceInterval{}, true},
+		{"R/1985-04-12T23:20:50/P1Y2M3DT4H5M6S", -1, "1985-04-12T23:20:50Z", "<nil>", RecurrenceInterval{Years: 1, Months: 2, Days: 3, Hours: 4, Minutes: 5, Seconds: 6}, true},
+		{"R10/19850412T232050/P1W", 10, "1985-04-12T23:20:50Z", "<nil>", RecurrenceInterval{Weeks: 1}, true},
+		{"R/PT1H2M3S/19850412T232050", -1, "<nil>", "1985-04-12T23:20:50Z", RecurrenceInterval{Hours: 1, Minutes: 2, Seconds: 3}, true},
+		/* incorrect formats */
+		{RecurrenceString: "PT1H2M3S", FormatCorrect: false},
+		{RecurrenceString: "R-1/PT1H2M3S", FormatCorrect: false},
+		{RecurrenceString: "R0", FormatCorrect: false},
+		{RecurrenceString: "P1Y/R1", FormatCorrect: false},
+		{RecurrenceString: "P1Y/R/19850412T232050", FormatCorrect: false},
+		{RecurrenceString: "R/19850412T232050", FormatCorrect: false},
+		{RecurrenceString: "R/19850412T232050/19850412T232050/P1Y", FormatCorrect: false},
+		{RecurrenceString: "19850412T232050/19850412T232050/P1Y", FormatCorrect: false},
+	}
+
+	for index, test := range formatTests {
+		recurrence, err := RecurrenceFromString(test.RecurrenceString)
+
+		if test.FormatCorrect && err != nil {
+			t.Errorf("Test %d expected correct format but got error %#v", index+1, err)
+		} else if !test.FormatCorrect {
+			if err == nil {
+				t.Errorf("Test %d expected incorrect format but got %#v", index+1, recurrence)
+			} else if err != ErrBadFormat {
+				t.Errorf("Test %d expected incorrect format error but got error %#v", index+1, err)
+			}
+		} else {
+			if recurrence.Repetitions != test.ExpectedRepetitions {
+				t.Errorf("Test %d expected repetitions %d but got %d", index+1, test.ExpectedRepetitions, recurrence.Repetitions)
+			}
+
+			if recurrence.Start != nil {
+				startDate := recurrence.Start.Format(time.RFC3339)
+
+				if startDate != test.ExpectedStartDate {
+					t.Errorf("Test %d expected start date %s but got %s", index+1, test.ExpectedStartDate, startDate)
+				}
+			} else if test.ExpectedStartDate != "<nil>" {
+				t.Errorf("Test %d expected start date %s but got nil", index+1, test.ExpectedStartDate)
+			}
+
+			if recurrence.End != nil {
+				endDate := recurrence.End.Format(time.RFC3339)
+
+				if endDate != test.ExpectedEndDate {
+					t.Errorf("Test %d expected end date %s but got %s", index+1, test.ExpectedEndDate, endDate)
+				}
+			} else if test.ExpectedEndDate != "<nil>" {
+				t.Errorf("Test %d expected end date %s but got nil", index+1, test.ExpectedEndDate)
+			}
+
+			emptyInterval := RecurrenceInterval{}
+
+			if recurrence.Duration != nil {
+				if test.ExpectedInterval == emptyInterval {
+					t.Errorf("Test %d expected no duration but got %#v", index+1, recurrence.Duration)
+				}
+
+				if *recurrence.Duration != test.ExpectedInterval {
+					t.Errorf("Test %d expected duration %#v but got %#v", index+1, test.ExpectedInterval, recurrence.Duration)
+				}
+			} else if test.ExpectedInterval != emptyInterval {
+				t.Errorf("Test %d expected duration %#v but got nil", index+1, test.ExpectedInterval)
+			}
+		}
+	}
+}
